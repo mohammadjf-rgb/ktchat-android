@@ -5,32 +5,52 @@ on:
   push:
     branches: [ main ]
 
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Rebuild source archive
+
+      - name: Unpack KT-Chat Android source
         run: |
-          cat srcparts/part01 srcparts/part02a srcparts/part02b srcparts/part03 srcparts/part04 srcparts/part05 srcparts/part06 srcparts/part07 srcparts/part08 > project.b64
-          base64 -d project.b64 > KT-Chat-Android-v1.0.14-project.zip
-          echo "5d69fa01e45297cd9ca7a7088797a3be78f3d26c5f2c9d8415e9d9eb5adaed73  KT-Chat-Android-v1.0.14-project.zip" | sha256sum -c -
+          rm -rf project
           mkdir -p project
-          unzip -q KT-Chat-Android-v1.0.14-project.zip -d project
-      - uses: actions/setup-java@v4
+          unzip -q KT-Chat-Android-v1.0.14-SOURCE.zip -d project
+          SRC="$(find project -maxdepth 2 -type f -name settings.gradle -printf '%h\n' | head -1)"
+          test -n "$SRC"
+          echo "PROJECT_DIR=$SRC" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build debug APK
-        working-directory: project
-        run: gradle :app:assembleDebug --stacktrace
-      - name: Rename APK
-        run: cp project/app/build/outputs/apk/debug/app-debug.apk KT-Chat-v1.0.14.apk
+
+      - name: Build APK
+        run: gradle -p "$PROJECT_DIR" :app:assembleDebug --stacktrace
+
+      - name: Prepare artifact
+        run: |
+          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" KT-Chat-v1.0.14.apk
+          sha256sum KT-Chat-v1.0.14.apk > KT-Chat-v1.0.14.apk.sha256
+
       - uses: actions/upload-artifact@v4
         with:
           name: KT-Chat-Android-v1.0.14
-          path: KT-Chat-v1.0.14.apk
+          path: |
+            KT-Chat-v1.0.14.apk
+            KT-Chat-v1.0.14.apk.sha256
