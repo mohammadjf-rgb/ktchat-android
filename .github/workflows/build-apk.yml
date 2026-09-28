@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build KT-Chat Android v1.0.15
 
 on:
   workflow_dispatch:
@@ -15,14 +15,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack KT-Chat Android source
+      - name: Prepare v1.0.15 source
         run: |
-          rm -rf project
-          mkdir -p project
-          unzip -q KT-Chat-Android-v1.0.14-SOURCE.zip -d project
-          SRC="$(find project -maxdepth 2 -type f -name settings.gradle -printf '%h\n' | head -1)"
-          test -n "$SRC"
-          echo "PROJECT_DIR=$SRC" >> "$GITHUB_ENV"
+          rm -rf work project
+          mkdir -p work
+          unzip -q KT-Chat-Android-v1.0.14-SOURCE.zip -d work
+          PROJECT_DIR="$(find work -maxdepth 2 -type f -name settings.gradle -printf '%h\n' | head -1)"
+          test -n "$PROJECT_DIR"
+          gzip -dc KT-Chat-Android-v1.0.15.patch.gz > /tmp/ktchat-v115.patch
+          patch -d "$PROJECT_DIR" -p1 < /tmp/ktchat-v115.patch
+          grep -q "versionName '1.0.15'" "$PROJECT_DIR/app/build.gradle"
+          grep -q "KTChatNotificationService" "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v5
         with:
@@ -43,14 +47,18 @@ jobs:
       - name: Build APK
         run: gradle -p "$PROJECT_DIR" :app:assembleDebug --stacktrace
 
-      - name: Prepare artifact
+      - name: Prepare artifacts
         run: |
-          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" KT-Chat-v1.0.14.apk
-          sha256sum KT-Chat-v1.0.14.apk > KT-Chat-v1.0.14.apk.sha256
+          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" KT-Chat-v1.0.15.apk
+          sha256sum KT-Chat-v1.0.15.apk > KT-Chat-v1.0.15.apk.sha256
+          (cd "$PROJECT_DIR" && zip -qr "$GITHUB_WORKSPACE/KT-Chat-Android-v1.0.15-SOURCE.zip" .)
+          sha256sum KT-Chat-Android-v1.0.15-SOURCE.zip > KT-Chat-Android-v1.0.15-SOURCE.zip.sha256
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KT-Chat-Android-v1.0.14
+          name: KT-Chat-Android-v1.0.15
           path: |
-            KT-Chat-v1.0.14.apk
-            KT-Chat-v1.0.14.apk.sha256
+            KT-Chat-v1.0.15.apk
+            KT-Chat-v1.0.15.apk.sha256
+            KT-Chat-Android-v1.0.15-SOURCE.zip
+            KT-Chat-Android-v1.0.15-SOURCE.zip.sha256
