@@ -17,12 +17,15 @@ jobs:
 
       - name: Prepare v1.0.15 source
         run: |
-          rm -rf work project
+          rm -rf work
           mkdir -p work
           unzip -q KT-Chat-Android-v1.0.14-SOURCE.zip -d work
           PROJECT_DIR="$(find work -maxdepth 2 -type f -name settings.gradle -printf '%h\n' | head -1)"
           test -n "$PROJECT_DIR"
-          gzip -dc KT-Chat-Android-v1.0.15.patch.gz > /tmp/ktchat-v115.patch
+          cat patches/v115.part00 patches/v115.part01 patches/v115.part02 patches/v115.part03 > /tmp/ktchat-v115.patch.gz
+          echo "13181b05acf81324ab47849ddf6f48efa1ff6ca992ac2bde2e9d306b08135c1a  /tmp/ktchat-v115.patch.gz" | sha256sum -c -
+          gzip -t /tmp/ktchat-v115.patch.gz
+          gzip -dc /tmp/ktchat-v115.patch.gz > /tmp/ktchat-v115.patch
           patch -d "$PROJECT_DIR" -p1 < /tmp/ktchat-v115.patch
           grep -q "versionName '1.0.15'" "$PROJECT_DIR/app/build.gradle"
           grep -q "KTChatNotificationService" "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
@@ -53,6 +56,8 @@ jobs:
           sha256sum KT-Chat-v1.0.15.apk > KT-Chat-v1.0.15.apk.sha256
           (cd "$PROJECT_DIR" && zip -qr "$GITHUB_WORKSPACE/KT-Chat-Android-v1.0.15-SOURCE.zip" .)
           sha256sum KT-Chat-Android-v1.0.15-SOURCE.zip > KT-Chat-Android-v1.0.15-SOURCE.zip.sha256
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging KT-Chat-v1.0.15.apk | head -20
+          unzip -t KT-Chat-v1.0.15.apk >/dev/null
 
       - uses: actions/upload-artifact@v4
         with:
