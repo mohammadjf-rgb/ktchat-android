@@ -1,0 +1,34 @@
+name: Export Android build tools
+
+on:
+  push:
+    paths:
+      - ".github/workflows/export-build-tools.yml"
+  workflow_dispatch:
+
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Android SDK 35
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - name: Collect tools
+        run: |
+          mkdir -p export/platform export/build-tools/lib
+          cp "$ANDROID_HOME/platforms/android-35/android.jar" export/platform/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/d8.jar" export/build-tools/lib/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" export/build-tools/lib/
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" export/build-tools/
+          chmod +x export/build-tools/zipalign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-build-tools-35-export
+          path: export
